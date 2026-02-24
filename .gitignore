@@ -193,3 +193,6 @@ test_vad_prob.py
 
 # Demo videos
 demo/
+
+# Session tracking
+session_track.csv

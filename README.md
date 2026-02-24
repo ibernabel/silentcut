@@ -50,23 +50,28 @@ To ensure the tool is both developer-friendly and production-ready, I made the f
 
 ### Installation
 
+1. Make sure you have `ffmpeg` installed on your system.
+2. Install the tool globally using `uv`:
+
 ```bash
 # Clone the repository
 git clone https://github.com/ibernabel/silentcut
 cd silentcut
 
-# Install dependencies using uv
-uv sync
+# Install the tool globally
+uv tool install -e .
 ```
+
+This will make the `silentcut` command available from anywhere in your terminal.
 
 ### Usage
 
 ```bash
 # Basic usage with automatic threshold detection
-uv run python -m silentcut.main input.mp4 --auto
+silentcut input.mp4 --auto
 
 # High-sensitivity mode for noisy environments
-uv run python -m silentcut.main input.mp4 --threshold -25 --padding 0.2
+silentcut input.mp4 --threshold -25 --padding 0.2
 ```
 
 ## 📜 License
