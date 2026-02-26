@@ -42,3 +42,16 @@ def ensure_ffmpeg() -> None:
     except (subprocess.CalledProcessError, FileNotFoundError):
         handle_error(
             "FFmpeg not found. Please install FFmpeg and ensure it's in your PATH.")
+
+
+def get_unique_path(path: Path) -> Path:
+    """If path exists, append (1), (2), etc. until a unique one is found."""
+    if not path.exists():
+        return path
+
+    counter = 1
+    while True:
+        new_path = path.parent / f"{path.stem} ({counter}){path.suffix}"
+        if not new_path.exists():
+            return new_path
+        counter += 1

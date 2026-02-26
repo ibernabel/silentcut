@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from rich.table import Table
 
 from silentcut.models import SilenceConfig
-from silentcut.utils import console, format_time, ensure_ffmpeg, handle_error
+from silentcut.utils import console, format_time, ensure_ffmpeg, handle_error, get_unique_path
 from silentcut.detector import FFmpegDetector
 from silentcut.processor import get_video_duration, build_timeline
 from silentcut.cutter import cut_and_concat
@@ -80,6 +80,10 @@ def remove(
             f"{input_file.stem}_no_silence{input_file.suffix}"
     else:
         output_path = Path(output)
+
+    # Ensure unique output path to prevent overwriting
+    if not dry_run:
+        output_path = get_unique_path(output_path)
 
     # Auto threshold detection
     resolved_threshold = threshold
