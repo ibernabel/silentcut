@@ -196,3 +196,6 @@ demo/
 
 # Session tracking
 session_track.csv
+
+# Gemini
+.gemini/
