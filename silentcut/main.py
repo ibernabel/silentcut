@@ -55,6 +55,11 @@ def remove(
         "--accelerate", "--accel",
         help="Accelerate silence instead of removing it (e.g., 2.0, 3.0)."
     ),
+    fluid: bool = typer.Option(
+        False,
+        "--fluid", "-f",
+        help="Enable smooth transitions and motion blur for speed changes."
+    ),
     verbose: bool = typer.Option(
         False,
         "--verbose", "-v",
@@ -95,7 +100,8 @@ def remove(
             threshold=resolved_threshold,
             min_duration=min_duration,
             padding=padding,
-            accelerate=accelerate
+            accelerate=accelerate,
+            fluid=fluid
         )
     except ValidationError as e:
         handle_error("Invalid configuration parameters provided.", e)
@@ -113,6 +119,7 @@ def remove(
     table.add_row("Padding", f"{config.padding} s")
     table.add_row(
         "Accelerate", f"{config.accelerate}x" if config.accelerate else "Disabled (Remove)")
+    table.add_row("Fluid Mode", "Enabled 🌊" if config.fluid else "Disabled")
     table.add_row("Dry Run", str(dry_run))
     console.print(table)
     console.print()
@@ -162,7 +169,7 @@ def remove(
     # Phase 2: Cutting
     with console.status(f"[bold blue]Processing {len(segments_to_process)} segments (Phase 2/2)...") as status:
         cut_and_concat(str(input_file), str(output_path),
-                       segments_to_process, dry_run=dry_run)
+                       segments_to_process, fluid=config.fluid, dry_run=dry_run)
 
     # Summary
     if not dry_run:

@@ -5,7 +5,8 @@ Welcome to the official documentation for SilentCut. This directory contains the
 ## 🛠 Implementation Phases
 
 - [Phase 1: Foundation](implementation/phase-1-silentcut.md) - Core CLI, FFmpeg integration, and silence detection.
-- [Phase 1.1: Dynamic Acceleration](implementation/phase-1-1-acceleration.md) - Support for speeding up silent segments instead of removing them.
+- [Phase 1.1: Dynamic Acceleration](implementation/phase-1-1-acceleration.md) - Support for speeding up silent segments.
+- [Phase 1.2: Fluid Acceleration](implementation/phase-1-2-fluid-acceleration.md) - Smooth speed ramping and motion blur (InShot style).
 
 ## 📋 Planning
 

@@ -8,6 +8,7 @@ def cut_and_concat(
     input_path: str,
     output_path: str,
     speech_segments: list[Segment],
+    fluid: bool = False,
     dry_run: bool = False
 ) -> None:
     """
@@ -46,9 +47,19 @@ def cut_and_concat(
             if a_filter_str:
                 a_filter_str = "," + a_filter_str
 
+            # Video filters
+            v_filters = [
+                f"trim=start={seg.start}:end={seg.end}", f"setpts={v_speed:.4f}*PTS-STARTPTS"]
+            if fluid and seg.speed_factor > 1.05:
+                # Add motion blur via frame blending
+                # tmix merges 'frames' consecutive frames. 3 is a good balance.
+                v_filters.append("tmix=frames=3:weights='1 1 1'")
+
+            v_filter_str = ",".join(v_filters)
+
             # Video segment
             v_segments.append(
-                f"[0:v]trim=start={seg.start}:end={seg.end},setpts={v_speed:.4f}*PTS-STARTPTS[v{i}];")
+                f"[0:v]{v_filter_str}[v{i}];")
 
             # Audio segment
             a_segments.append(

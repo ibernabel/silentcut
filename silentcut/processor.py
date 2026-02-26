@@ -82,16 +82,50 @@ def build_timeline(
     # Interleave speech and accelerated silence
     timeline: list[Segment] = []
     current_time = 0.0
+    RAMP_DURATION = 0.1  # seconds for ease-in/out
 
-    # Ensure speech segments are sorted (calculate_speech_segments already returns them sorted)
+    # Ensure speech segments are sorted
     for speech in speech_segments:
         # Gap before speech (silence)
         if speech.start > current_time + 0.01:
-            timeline.append(Segment(
-                start=current_time,
-                end=speech.start,
-                speed_factor=config.accelerate
-            ))
+            silence_duration = speech.start - current_time
+
+            if config.fluid and silence_duration > RAMP_DURATION * 2:
+                # Speed ramping: Ease-in -> Constant -> Ease-out
+                mid_speed = (1.0 + config.accelerate) / 2.0
+
+                # Ease-in
+                timeline.append(Segment(
+                    start=current_time,
+                    end=current_time + RAMP_DURATION,
+                    speed_factor=mid_speed
+                ))
+                # Constant
+                timeline.append(Segment(
+                    start=current_time + RAMP_DURATION,
+                    end=speech.start - RAMP_DURATION,
+                    speed_factor=config.accelerate
+                ))
+                # Ease-out
+                timeline.append(Segment(
+                    start=speech.start - RAMP_DURATION,
+                    end=speech.start,
+                    speed_factor=mid_speed
+                ))
+            elif config.fluid:
+                # Short silence: just mid speed
+                timeline.append(Segment(
+                    start=current_time,
+                    end=speech.start,
+                    speed_factor=(1.0 + config.accelerate) / 2.0
+                ))
+            else:
+                # Standard acceleration (jump)
+                timeline.append(Segment(
+                    start=current_time,
+                    end=speech.start,
+                    speed_factor=config.accelerate
+                ))
 
         # The speech itself
         timeline.append(speech)
@@ -99,10 +133,24 @@ def build_timeline(
 
     # Handle final gap
     if total_duration > current_time + 0.01:
-        timeline.append(Segment(
-            start=current_time,
-            end=total_duration,
-            speed_factor=config.accelerate
-        ))
+        silence_duration = total_duration - current_time
+        if config.fluid and silence_duration > RAMP_DURATION:
+            mid_speed = (1.0 + config.accelerate) / 2.0
+            timeline.append(Segment(
+                start=current_time,
+                end=current_time + RAMP_DURATION,
+                speed_factor=mid_speed
+            ))
+            timeline.append(Segment(
+                start=current_time + RAMP_DURATION,
+                end=total_duration,
+                speed_factor=config.accelerate
+            ))
+        else:
+            timeline.append(Segment(
+                start=current_time,
+                end=total_duration,
+                speed_factor=config.accelerate
+            ))
 
     return timeline

@@ -11,6 +11,8 @@ class SilenceConfig(BaseModel):
         default=0.1, ge=0, description="Padding around speech in seconds")
     accelerate: float | None = Field(
         default=None, gt=0, description="Dynamic acceleration factor for silence")
+    fluid: bool = Field(
+        default=False, description="Enable smooth speed ramping and motion blur")
 
     @field_validator("threshold")
     @classmethod

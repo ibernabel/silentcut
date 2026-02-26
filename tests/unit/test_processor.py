@@ -80,3 +80,33 @@ def test_build_timeline_accelerate():
     assert timeline[2].start == 4.0
     assert timeline[2].end == 10.0
     assert timeline[2].speed_factor == 1.0
+
+
+def test_build_timeline_fluid_ramping():
+    silent_segments = [Segment(start=2.0, end=4.0)]
+    total_duration = 10.0
+    # accelerate=3.0, ramp=0.1s
+    config = SilenceConfig(padding=0.0, accelerate=3.0, fluid=True)
+
+    # Expected timeline:
+    # 0.0 -> 2.0 (speech, 1.0)
+    # 2.0 -> 2.1 (ease-in, (1+3)/2 = 2.0)
+    # 2.1 -> 3.9 (constant, 3.0)
+    # 3.9 -> 4.0 (ease-out, 2.0)
+    # 4.0 -> 10.0 (speech, 1.0)
+
+    timeline = build_timeline(silent_segments, total_duration, config)
+
+    assert len(timeline) == 5
+    # Ease-in
+    assert timeline[1].start == 2.0
+    assert timeline[1].end == 2.1
+    assert timeline[1].speed_factor == 2.0
+    # Constant
+    assert timeline[2].start == 2.1
+    assert timeline[2].end == 3.9
+    assert timeline[2].speed_factor == 3.0
+    # Ease-out
+    assert timeline[3].start == 3.9
+    assert timeline[3].end == 4.0
+    assert timeline[3].speed_factor == 2.0
