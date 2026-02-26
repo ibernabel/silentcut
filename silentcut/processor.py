@@ -61,3 +61,48 @@ def calculate_speech_segments(
                 consolidated.append(s)
 
     return consolidated
+
+
+def build_timeline(
+    silent_segments: list[Segment],
+    total_duration: float,
+    config: SilenceConfig
+) -> list[Segment]:
+    """
+    Constructs the sequence of segments for the output video.
+    If config.accelerate is set, includes silence segments with a speed factor.
+    Otherwise, only includes speech segments (removing silence).
+    """
+    speech_segments = calculate_speech_segments(
+        silent_segments, total_duration, config)
+
+    if not config.accelerate:
+        return speech_segments
+
+    # Interleave speech and accelerated silence
+    timeline: list[Segment] = []
+    current_time = 0.0
+
+    # Ensure speech segments are sorted (calculate_speech_segments already returns them sorted)
+    for speech in speech_segments:
+        # Gap before speech (silence)
+        if speech.start > current_time + 0.01:
+            timeline.append(Segment(
+                start=current_time,
+                end=speech.start,
+                speed_factor=config.accelerate
+            ))
+
+        # The speech itself
+        timeline.append(speech)
+        current_time = speech.end
+
+    # Handle final gap
+    if total_duration > current_time + 0.01:
+        timeline.append(Segment(
+            start=current_time,
+            end=total_duration,
+            speed_factor=config.accelerate
+        ))
+
+    return timeline

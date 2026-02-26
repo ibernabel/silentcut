@@ -72,6 +72,9 @@ silentcut input.mp4 --auto
 
 # High-sensitivity mode for noisy environments
 silentcut input.mp4 --threshold -25 --padding 0.2
+
+# Accelerate silence instead of removing it (dynamic fast-forward)
+silentcut input.mp4 --accelerate 2.0
 ```
 
 ## 📜 License

@@ -1,4 +1,4 @@
-from silentcut.processor import calculate_speech_segments
+from silentcut.processor import calculate_speech_segments, build_timeline
 from silentcut.models import Segment, SilenceConfig
 
 
@@ -41,3 +41,42 @@ def test_calculate_speech_segments_overlapping_padding():
     assert speech[1].end == pytest.approx(2.3)
     assert speech[2].start == pytest.approx(2.8)
     assert speech[2].end == pytest.approx(5.0)
+
+
+def test_build_timeline_no_accelerate():
+    silent_segments = [Segment(start=2.0, end=4.0)]
+    total_duration = 10.0
+    config = SilenceConfig(padding=0.1, accelerate=None)
+
+    timeline = build_timeline(silent_segments, total_duration, config)
+
+    # Should only contain speech segments
+    assert len(timeline) == 2
+    assert all(s.speed_factor == 1.0 for s in timeline)
+
+
+def test_build_timeline_accelerate():
+    silent_segments = [Segment(start=2.0, end=4.0)]
+    total_duration = 10.0
+    config = SilenceConfig(padding=0.0, accelerate=2.0)
+
+    # config.padding = 0 to simplify expected bounds
+    # timeline should be:
+    # 0.0 -> 2.0 (speech, 1.0)
+    # 2.0 -> 4.0 (silence, 2.0)
+    # 4.0 -> 10.0 (speech, 1.0)
+
+    timeline = build_timeline(silent_segments, total_duration, config)
+
+    assert len(timeline) == 3
+    assert timeline[0].start == 0.0
+    assert timeline[0].end == 2.0
+    assert timeline[0].speed_factor == 1.0
+
+    assert timeline[1].start == 2.0
+    assert timeline[1].end == 4.0
+    assert timeline[1].speed_factor == 2.0
+
+    assert timeline[2].start == 4.0
+    assert timeline[2].end == 10.0
+    assert timeline[2].speed_factor == 1.0

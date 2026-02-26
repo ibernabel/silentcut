@@ -7,7 +7,7 @@ from rich.table import Table
 from silentcut.models import SilenceConfig
 from silentcut.utils import console, format_time, ensure_ffmpeg, handle_error
 from silentcut.detector import FFmpegDetector
-from silentcut.processor import get_video_duration, calculate_speech_segments
+from silentcut.processor import get_video_duration, build_timeline
 from silentcut.cutter import cut_and_concat
 app = typer.Typer(
     help="SilentCut — Video Silence Remover CLI",
@@ -50,6 +50,11 @@ def remove(
         "--auto", "-a",
         help="Automatically detect silence threshold based on noise floor."
     ),
+    accelerate: float = typer.Option(
+        None,
+        "--accelerate", "--accel",
+        help="Accelerate silence instead of removing it (e.g., 2.0, 3.0)."
+    ),
     verbose: bool = typer.Option(
         False,
         "--verbose", "-v",
@@ -89,7 +94,8 @@ def remove(
         config = SilenceConfig(
             threshold=resolved_threshold,
             min_duration=min_duration,
-            padding=padding
+            padding=padding,
+            accelerate=accelerate
         )
     except ValidationError as e:
         handle_error("Invalid configuration parameters provided.", e)
@@ -105,6 +111,8 @@ def remove(
     table.add_row("Threshold", f"{config.threshold} dB")
     table.add_row("Min Duration", f"{config.min_duration} s")
     table.add_row("Padding", f"{config.padding} s")
+    table.add_row(
+        "Accelerate", f"{config.accelerate}x" if config.accelerate else "Disabled (Remove)")
     table.add_row("Dry Run", str(dry_run))
     console.print(table)
     console.print()
@@ -125,28 +133,36 @@ def remove(
         console.print(
             "[yellow]⚠ No silence detected. Try increasing the threshold (e.g. -t -25) or using --auto.[/yellow]")
 
-    # Process inversion mathematically
-    speech_segments = calculate_speech_segments(
+    # Process timeline construction
+    segments_to_process = build_timeline(
         silent_segments, total_duration, config)
 
     if verbose:
-        console.print("[dim]Speech segments calculated:[/dim]")
-        for i, seg in enumerate(speech_segments, 1):
+        console.print("[dim]Segments to process calculated:[/dim]")
+        for i, seg in enumerate(segments_to_process, 1):
+            speed_info = f" (@{seg.speed_factor}x)" if seg.speed_factor != 1.0 else ""
             console.print(
-                f"[dim]  {i}: {format_time(seg.start)} -> {format_time(seg.end)} ({format_time(seg.duration)}s)[/dim]")
+                f"[dim]  {i}: {format_time(seg.start)} -> {format_time(seg.end)} ({format_time(seg.duration)}s){speed_info}[/dim]")
 
-    if not speech_segments:
+    if not segments_to_process:
         console.print(
-            "[yellow]Warning: No speech segments found. Exiting.[/yellow]")
+            "[yellow]Warning: No segments found to process. Exiting.[/yellow]")
         return
 
-    kept_duration = sum(seg.duration for seg in speech_segments)
-    removed_duration = total_duration - kept_duration
+    # Calculate final stats
+    if config.accelerate:
+        final_duration = 0.0
+        for seg in segments_to_process:
+            final_duration += seg.duration / seg.speed_factor
+        removed_duration = total_duration - final_duration
+    else:
+        final_duration = sum(seg.duration for seg in segments_to_process)
+        removed_duration = total_duration - final_duration
 
     # Phase 2: Cutting
-    with console.status(f"[bold blue]Processing {len(speech_segments)} segments (Phase 2/2)...") as status:
+    with console.status(f"[bold blue]Processing {len(segments_to_process)} segments (Phase 2/2)...") as status:
         cut_and_concat(str(input_file), str(output_path),
-                       speech_segments, dry_run=dry_run)
+                       segments_to_process, dry_run=dry_run)
 
     # Summary
     if not dry_run:
@@ -154,13 +170,16 @@ def remove(
             output_path) / (1024 * 1024) if os.path.exists(output_path) else 0.0
         console.print(
             f"\n[bold green]Success![/bold green] Output written to [bold]{output_path}[/bold]")
+
+        action = "Removed" if not config.accelerate else "Saved"
         console.print(
-            f"Removed {format_time(removed_duration)} of silence. Final duration: {format_time(kept_duration)}.")
+            f"{action} {format_time(removed_duration)} by {'removing' if not config.accelerate else 'accelerating'} silence. Final duration: {format_time(final_duration)}.")
         console.print(f"Output size: {size_mb:.2f} MB")
     else:
         console.print(f"\n[bold green]Dry Run Complete![/bold green]")
+        action = "Would have removed" if not config.accelerate else "Would have saved"
         console.print(
-            f"Would have removed {format_time(removed_duration)} of silence. Final duration: {format_time(kept_duration)}.")
+            f"{action} {format_time(removed_duration)}. Final duration: {format_time(final_duration)}.")
 
 
 if __name__ == "__main__":

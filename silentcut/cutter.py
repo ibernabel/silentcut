@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+import math
 from silentcut.models import Segment
 
 
@@ -24,19 +25,34 @@ def cut_and_concat(
 
     try:
         # Build the filter complex string
-        # We use trim/atrim for each segment and then concat them.
-        # This requires re-encoding but guarantees perfect A/V sync.
-
         v_segments = []
         a_segments = []
 
         for i, seg in enumerate(speech_segments):
+            # Speed adjustments
+            v_speed = 1.0 / seg.speed_factor
+
+            # atempo filter has a limit of [0.5, 2.0]
+            # We chain multiple atempo filters if factor > 2.0
+            a_speed_filters = []
+            temp_factor = seg.speed_factor
+            while temp_factor > 2.0:
+                a_speed_filters.append("atempo=2.0")
+                temp_factor /= 2.0
+            if temp_factor != 1.0:
+                a_speed_filters.append(f"atempo={temp_factor:.2f}")
+
+            a_filter_str = ",".join(a_speed_filters) if a_speed_filters else ""
+            if a_filter_str:
+                a_filter_str = "," + a_filter_str
+
             # Video segment
             v_segments.append(
-                f"[0:v]trim=start={seg.start}:end={seg.end},setpts=PTS-STARTPTS[v{i}];")
+                f"[0:v]trim=start={seg.start}:end={seg.end},setpts={v_speed:.4f}*PTS-STARTPTS[v{i}];")
+
             # Audio segment
             a_segments.append(
-                f"[0:a]atrim=start={seg.start}:end={seg.end},asetpts=PTS-STARTPTS[a{i}];")
+                f"[0:a]atrim=start={seg.start}:end={seg.end},asetpts=PTS-STARTPTS{a_filter_str}[a{i}];")
 
         concat_inputs = "".join(
             [f"[v{i}][a{i}]" for i in range(len(speech_segments))])
